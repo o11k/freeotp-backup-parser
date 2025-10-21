@@ -41,7 +41,14 @@
              * @param {File} file
              */
             async function handleChangeFile(file) {
-                const bytes = await file.bytes();
+                const reader = new FileReader();
+                const readPromise = new Promise((res, rej) => {
+                    reader.addEventListener("load", () => res(reader.result));
+                    reader.addEventListener("error", () => rej(reader.error));
+                })
+                reader.readAsArrayBuffer(file);
+
+                const bytes = await readPromise;
                 const text = new TextDecoder().decode(bytes);
                 
                 const result = document.createElement("div");
