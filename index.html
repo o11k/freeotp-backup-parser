@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeOTP Backup Parser</title>
+</head>
+<body>
+    <main>
+        Select <code>externalBackup.xml</code> file
+        <br>
+        <input type="file" name="freeotp-file-input" id="freeotp-file-input">
+        <br>
+        <br>
+        Enter password
+        <br>
+        <input type="password" name="freeotp-password-input" id="freeotp-password-input">
+        <button id="freeotp-password-btn">Set</button>
+        <br>
+        <br>
+        <div id="freeotp-results"></div>
+
+        <script>
+            // @ts-check
+
+            const _fileInput = document.getElementById("freeotp-file-input");
+            const _passwordInput = document.getElementById("freeotp-password-input");
+            const _passwordBtn = document.getElementById("freeotp-password-btn");
+            const _resultsDiv = document.getElementById("freeotp-results");
+
+            if (!(_fileInput instanceof HTMLInputElement &&
+                  _resultsDiv instanceof HTMLDivElement &&
+                  _passwordInput instanceof HTMLInputElement &&
+                  _passwordBtn instanceof HTMLButtonElement)) {
+                throw 'type error'
+            }
+
+            const [fileInput, passwordInput, passwordBtn, resultsDiv] = [_fileInput, _passwordInput, _passwordBtn, _resultsDiv];
+
+            /**
+             * @param {File} file
+             */
+            async function handleChangeFile(file) {
+                const bytes = await file.bytes();
+                const text = new TextDecoder().decode(bytes);
+                
+                const result = document.createElement("div");
+                result.style.border = "1px solid black";
+                result.innerText = text;
+                resultsDiv.appendChild(result);
+            }
+
+            /**
+             * @param {string} password
+             */
+            async function handleChangePassword(password) {
+                const result = document.createElement("p");
+                result.innerText = password;
+                resultsDiv.appendChild(result);
+            }
+
+            fileInput.addEventListener("change",  async function (ev) {
+                if (this.files && this.files.length === 1) {
+                    const file = this.files[0];
+                    await handleChangeFile(file);
+                }
+            })
+
+            passwordInput.addEventListener("keydown", async function (ev) {
+                if (ev.key === "Enter") {
+                    await handleChangePassword(passwordInput.value);
+                }
+            })
+
+            passwordBtn.addEventListener("click", async function (ev) {
+                await handleChangePassword(passwordInput.value);
+            })
+        </script>
+    </main>
+</body>
+</html>
