@@ -158,29 +158,23 @@ type JValues = {[key: string]: JValue}
 class Deserializer {
     reader: ByteReader;
 
-    objects: JObject[];
+    handles: {[key: number]: JObject};
     currHandle: number;
-    objectHandlesMapping: {[key: number]: number};
 
     constructor (data: Uint8Array) {
         this.reader = new ByteReader(data);
-        this.objects = [];
+        this.handles = {};
         this.currHandle = baseWireHandle;
-        this.objectHandlesMapping = {};
     }
 
     reset() {
         this.currHandle = baseWireHandle;
-        this.objectHandlesMapping = {};
+        this.handles = {};
     }
 
-    newHandle(obj: JObject): number {
-        const index = this.objects.length;
+    newHandle(obj: JObject): void {
         const handle = this.currHandle++;
-        this.objects.push(obj);
-        this.objectHandlesMapping[handle] = index;
-        
-        return index;
+        this.handles[handle] = obj;
     }
 
     _deserInteger(size: number): bigint {
@@ -294,8 +288,6 @@ class Deserializer {
     deser(): JContents {
         this.expectShort(STREAM_MAGIC);
         this.expectShort(STREAM_VERSION);
-
-        this.objects = [];
 
         const contents = [];
         while (!this.reader.eof()) {
@@ -549,10 +541,7 @@ class Deserializer {
         this.expectByte(TC_REFERENCE);
         const handle = this.deserInt();
 
-        if (!(handle in this.objectHandlesMapping)) {
-            throw new Error(`Handle ${handle} not found`);
-        }
-        return this.objects[this.objectHandlesMapping[handle]];
+        return this.handles[handle];
     }
 
     deserException(): JException {
