@@ -20,7 +20,8 @@
         <br>
         <div id="freeotp-results"></div>
 
-        <script>
+        <script src="dist/java-deser.js"></script>
+        <script defer>
             // @ts-check
 
             const _fileInput = document.getElementById("freeotp-file-input");
@@ -49,10 +50,17 @@
                 reader.readAsArrayBuffer(file);
 
                 const bytes = await readPromise;
-                const text = new TextDecoder().decode(bytes);
+                const tree = new Deserializer(bytes).deser();
+                console.log(tree);
+                const text = JSON.stringify(tree, (_, value) => {
+                    if (typeof value === 'bigint') return value.toString();
+                    if (value instanceof Uint8Array) return Array.from(value);
+                    return value;
+                }, 2);
                 
                 const result = document.createElement("div");
                 result.style.border = "1px solid black";
+                result.style.whiteSpace = "pre";
                 result.innerText = text;
                 resultsDiv.appendChild(result);
             }
