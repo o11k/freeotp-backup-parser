@@ -42,22 +42,28 @@
              * @param {File} file
              */
             async function handleChangeFile(file) {
-                // const reader = new FileReader();
-                // const readPromise = new Promise((res, rej) => {
-                //     reader.addEventListener("load", () => res(reader.result));
-                //     reader.addEventListener("error", () => rej(reader.error));
-                // })
-                // reader.readAsArrayBuffer(file);
-
-                // const bytes = await readPromise;
-                // const tree = new Deserializer(bytes).deser();
                 const tree = await parseFreeOTPBackupFile(file);
                 console.log(tree);
-                const text = JSON.stringify(tree, (_, value) => {
-                    if (typeof value === 'bigint') return value.toString();
-                    if (value instanceof Uint8Array) return Array.from(value);
-                    return value;
-                }, 2);
+
+                const text = Object.keys(tree)
+                    .filter(k => k !== "masterKey")
+                    .map(k => tree[k].token)
+                    .map(t => {
+                        const uri = new URL(`otpauth://`);
+                        uri.host = t.type.toLowerCase()
+                        uri.pathname = (t.issuerExt !== undefined ? t.issuerExt + ":" : "") + t.label;
+                        // TODO secret
+                        if (t.algo !== undefined) uri.searchParams.append("algorith", t.algo)
+                        if (t.period !== undefined) uri.searchParams.append("period", t.period)
+                        if (t.digits !== undefined) uri.searchParams.append("digits", t.digits)
+                        if (t.lock !== undefined) uri.searchParams.append("lock", t.lock.toString())
+                        if (t.color !== undefined) uri.searchParams.append("color", t.color)
+                        if (t.image !== undefined) uri.searchParams.append("image", t.algo)
+                        if (t.typee === "HOTP") uri.searchParams.append("counter", t.counter)
+                        
+                        return uri.href;
+                    })
+                    .join("\n\n");
                 
                 const result = document.createElement("div");
                 result.style.border = "1px solid black";

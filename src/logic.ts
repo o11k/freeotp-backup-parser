@@ -28,7 +28,21 @@ type FreeOTPBackup = {
 } & {
     [uuid: string]: {
         key: {},
-        token: {},
+        token: {
+            algo?: string,
+            issuerExt?: string,
+            issuerInt?: string,
+            issuerAlt?: string,
+            label: string,
+            labelAlt?: string,
+            issuerImage?: string,
+            issuerColor?: string,
+            lock?: boolean,
+            period?: number,
+            digits?: number,
+            type: "HOTP" | "TOTP",
+            counter?: number,
+        },
     }
 };
 
