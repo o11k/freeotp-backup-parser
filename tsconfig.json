@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "none",
+    "outFile": "dist/bundle.js",
+    "strict": true
+  },
+  "include": ["src/**/*.ts"]
+}

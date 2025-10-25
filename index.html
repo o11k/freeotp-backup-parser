@@ -20,7 +20,7 @@
         <br>
         <div id="freeotp-results"></div>
 
-        <script src="dist/java-deser.js"></script>
+        <script src="dist/bundle.js"></script>
         <script defer>
             // @ts-check
 
@@ -42,15 +42,16 @@
              * @param {File} file
              */
             async function handleChangeFile(file) {
-                const reader = new FileReader();
-                const readPromise = new Promise((res, rej) => {
-                    reader.addEventListener("load", () => res(reader.result));
-                    reader.addEventListener("error", () => rej(reader.error));
-                })
-                reader.readAsArrayBuffer(file);
+                // const reader = new FileReader();
+                // const readPromise = new Promise((res, rej) => {
+                //     reader.addEventListener("load", () => res(reader.result));
+                //     reader.addEventListener("error", () => rej(reader.error));
+                // })
+                // reader.readAsArrayBuffer(file);
 
-                const bytes = await readPromise;
-                const tree = new Deserializer(bytes).deser();
+                // const bytes = await readPromise;
+                // const tree = new Deserializer(bytes).deser();
+                const tree = await parseFreeOTPBackupFile(file);
                 console.log(tree);
                 const text = JSON.stringify(tree, (_, value) => {
                     if (typeof value === 'bigint') return value.toString();
