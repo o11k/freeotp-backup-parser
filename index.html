@@ -7,101 +7,15 @@
 </head>
 <body>
     <main>
-        Select <code>externalBackup.xml</code> file
-        <br>
-        <input type="file" name="freeotp-file-input" id="freeotp-file-input">
-        <br>
-        <br>
-        Enter password
-        <br>
-        <input type="password" name="freeotp-password-input" id="freeotp-password-input">
-        <button id="freeotp-password-btn">Set</button>
-        <br>
-        <br>
-        <div id="freeotp-results"></div>
+        <div id="freeotp-root"></div>
+
+        <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+        <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+        <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
         <script src="https://cjrtnc.leaningtech.com/4.2/loader.js"></script>
-        <script defer>
-            // @ts-check
 
-            const _fileInput = document.getElementById("freeotp-file-input");
-            const _passwordInput = document.getElementById("freeotp-password-input");
-            const _passwordBtn = document.getElementById("freeotp-password-btn");
-            const _resultsDiv = document.getElementById("freeotp-results");
-
-            if (!(_fileInput instanceof HTMLInputElement &&
-                  _resultsDiv instanceof HTMLDivElement &&
-                  _passwordInput instanceof HTMLInputElement &&
-                  _passwordBtn instanceof HTMLButtonElement)) {
-                throw 'type error'
-            }
-
-            const [fileInput, passwordInput, passwordBtn, resultsDiv] = [_fileInput, _passwordInput, _passwordBtn, _resultsDiv];
-
-            let gPassword;
-            let gKeystore;
-            let App;
-
-            async function loadJava() {
-                console.log("initializing cheerpj");
-                await cheerpjInit();
-                console.log("loading jar file");
-                const lib = await cheerpjRunLibrary("/app/freeotpbackupparser/target/freeotpbackupparser-1.0-SNAPSHOT.jar");
-                console.log("loading class");
-                App = await lib.com.o11k.App;
-                console.log("loaded");
-            }
-            loadJava();
-
-            /**
-             * @param {File} file
-             * @returns {Promise<Uint8Array>}
-             */
-            async function readFile(file) {
-                const reader = new FileReader();
-                const readPromise = new Promise((res, rej) => {
-                    reader.addEventListener("load", () => res(new Uint8Array(/** @type {ArrayBuffer} */ (reader.result))));
-                    reader.addEventListener("error", () => rej(reader.error));
-                })
-                reader.readAsArrayBuffer(file);
-
-                return await readPromise;
-            }
-
-            async function handleChangeFile(/** @type {File} */ file) {
-                const bytes = await readFile(file);
-                await cheerpOSAddStringFile("/str/externalBackup.xml", bytes);
-                
-                const result = document.createElement("div");
-                result.style.border = "1px solid black";
-                result.style.whiteSpace = "pre";
-                result.innerText = new TextDecoder().decode(bytes);
-                resultsDiv.appendChild(result);
-            }
-
-            async function handleChangePassword(/** @type {string} */ password) {
-                const result = document.createElement("p");
-                result.innerText = password;
-                resultsDiv.appendChild(result);
-            }
-
-            fileInput.addEventListener("change",  async function (ev) {
-                if (this.files && this.files.length === 1) {
-                    const file = this.files[0];
-                    await handleChangeFile(file);
-                }
-            })
-
-            passwordInput.addEventListener("keydown", async function (ev) {
-                if (ev.key === "Enter") {
-                    await handleChangePassword(passwordInput.value);
-                }
-            })
-
-            passwordBtn.addEventListener("click", async function (ev) {
-                await handleChangePassword(passwordInput.value);
-            })
-        </script>
+        <script type="text/babel" src="componenets.jsx"></script>
     </main>
 </body>
 </html>
