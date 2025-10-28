@@ -1,2 +1,3 @@
 all:
-	tsc
+	cd freeotpbackupparser && mvn clean package
+

@@ -20,7 +20,7 @@
         <br>
         <div id="freeotp-results"></div>
 
-        <script src="dist/bundle.js"></script>
+        <script src="https://cjrtnc.leaningtech.com/4.2/loader.js"></script>
         <script defer>
             // @ts-check
 
@@ -38,44 +38,48 @@
 
             const [fileInput, passwordInput, passwordBtn, resultsDiv] = [_fileInput, _passwordInput, _passwordBtn, _resultsDiv];
 
+            let gPassword;
+            let gKeystore;
+            let App;
+
+            async function loadJava() {
+                console.log("initializing cheerpj");
+                await cheerpjInit();
+                console.log("loading jar file");
+                const lib = await cheerpjRunLibrary("/app/freeotpbackupparser/target/freeotpbackupparser-1.0-SNAPSHOT.jar");
+                console.log("loading class");
+                App = await lib.com.o11k.App;
+                console.log("loaded");
+            }
+            loadJava();
+
             /**
              * @param {File} file
+             * @returns {Promise<Uint8Array>}
              */
-            async function handleChangeFile(file) {
-                const tree = await parseFreeOTPBackupFile(file);
-                console.log(tree);
+            async function readFile(file) {
+                const reader = new FileReader();
+                const readPromise = new Promise((res, rej) => {
+                    reader.addEventListener("load", () => res(new Uint8Array(/** @type {ArrayBuffer} */ (reader.result))));
+                    reader.addEventListener("error", () => rej(reader.error));
+                })
+                reader.readAsArrayBuffer(file);
 
-                const text = Object.keys(tree)
-                    .filter(k => k !== "masterKey")
-                    .map(k => tree[k].token)
-                    .map(t => {
-                        const uri = new URL(`otpauth://`);
-                        uri.host = t.type.toLowerCase()
-                        uri.pathname = (t.issuerExt !== undefined ? t.issuerExt + ":" : "") + t.label;
-                        // TODO secret
-                        if (t.algo !== undefined) uri.searchParams.append("algorith", t.algo)
-                        if (t.period !== undefined) uri.searchParams.append("period", t.period)
-                        if (t.digits !== undefined) uri.searchParams.append("digits", t.digits)
-                        if (t.lock !== undefined) uri.searchParams.append("lock", t.lock.toString())
-                        if (t.color !== undefined) uri.searchParams.append("color", t.color)
-                        if (t.image !== undefined) uri.searchParams.append("image", t.algo)
-                        if (t.typee === "HOTP") uri.searchParams.append("counter", t.counter)
-                        
-                        return uri.href;
-                    })
-                    .join("\n\n");
+                return await readPromise;
+            }
+
+            async function handleChangeFile(/** @type {File} */ file) {
+                const bytes = await readFile(file);
+                await cheerpOSAddStringFile("/str/externalBackup.xml", bytes);
                 
                 const result = document.createElement("div");
                 result.style.border = "1px solid black";
                 result.style.whiteSpace = "pre";
-                result.innerText = text;
+                result.innerText = new TextDecoder().decode(bytes);
                 resultsDiv.appendChild(result);
             }
 
-            /**
-             * @param {string} password
-             */
-            async function handleChangePassword(password) {
+            async function handleChangePassword(/** @type {string} */ password) {
                 const result = document.createElement("p");
                 result.innerText = password;
                 resultsDiv.appendChild(result);
