@@ -1,3 +1,4 @@
 .mvn/jvm.config
 .mvn/maven.config
 target/
+dependency-reduced-pom.xml
