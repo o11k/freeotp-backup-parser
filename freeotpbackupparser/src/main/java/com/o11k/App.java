@@ -66,5 +66,4 @@ public class App {
 
         return gson.toJson(bf);
     }
-
 }

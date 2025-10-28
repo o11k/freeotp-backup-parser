@@ -42,7 +42,7 @@ function AppComponent() {
         const bytes = await readFile(file);
         await cheerpOSAddStringFile("/str/externalBackup.xml", bytes);
         const res = await window.JavaClass.parseFreeOTPBackup("/str/externalBackup.xml");
-        setResult(res);
+        setResult(JSON.parse(res));
     })()}, [file, password])
 
     React.useEffect(() => {(async () => {
@@ -92,7 +92,24 @@ function AppComponent() {
                 <button onClick={() => setPassword(passwordEl.current.value)}>Set</button>
                 <br />
                 <br />
-                <div>{result}</div>
+                {!result ? null : <table border={1} style={{borderCollapse: "collapse"}}>
+                    <thead>
+                        <tr>
+                            <th>QR</th>
+                            <th>Issuer</th>
+                            <th>Label</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {result.tokens.map(t => {
+                            return <tr>
+                                <td>🔒</td>
+                                <td>{t.token.issuerInt ?? t.token.issuerExt ?? "<unknown>"}</td>
+                                <td>{t.token.label}</td>
+                            </tr>
+                        })}
+                    </tbody>
+                </table>}
             </div>
         </div>
     )
