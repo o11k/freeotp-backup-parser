@@ -26,6 +26,14 @@ function AppComponent() {
     const [result, setResult] = React.useState("")
 
     const [loading, setLoading] = React.useState(LOAD_STATE.START)
+    const [error, setError] = React.useState("")
+
+    React.useEffect(() => {(async () => {
+        if (!error) return;
+        let errStr = error.toString();
+        if (errStr instanceof Promise) errStr = await errStr;
+        window.alert(errStr);
+    })()}, [error])
 
     React.useEffect(() => {(async () => {
         if (file && loading < LOAD_STATE.DONE) throw new Error("unreachable without user shenanigans");
@@ -38,22 +46,27 @@ function AppComponent() {
     })()}, [file, password])
 
     React.useEffect(() => {(async () => {
-        setLoading(LOAD_STATE.INITIZALIZE)
-        await cheerpjInit();
-        setLoading(LOAD_STATE.JAR)
-        const lib = await cheerpjRunLibrary("/app/freeotpbackupparser/target/freeotpbackupparser-1.0-SNAPSHOT.jar");
-        setLoading(LOAD_STATE.CLASS)
-        const jclass = await lib.com.o11k.App;
-        window.JavaClass = jclass;
-        setLoading(LOAD_STATE.PARSE);
-        const result = await jclass.parseFreeOTPBackup("/app/externalBackup-demo.xml");
-        console.log(result);
-        setLoading(LOAD_STATE.DONE);
+        try {
+            setLoading(LOAD_STATE.INITIZALIZE)
+            await cheerpjInit();
+            setLoading(LOAD_STATE.JAR)
+            const lib = await cheerpjRunLibrary("/app/freeotpbackupparser/target/freeotpbackupparser-1.0-SNAPSHOT.jar");
+            setLoading(LOAD_STATE.CLASS)
+            const jclass = await lib.com.o11k.App;
+            window.JavaClass = jclass;
+            setLoading(LOAD_STATE.PARSE);
+            const result = await jclass.parseFreeOTPBackup("/app/externalBackup-demo.xml");
+            console.log(result);
+            setLoading(LOAD_STATE.DONE);
+        } catch (e) {
+            setError(e);
+        }
     })()}, [])
 
     const loadEmoji = (stage) => {
         if (stage < loading) return "✅";
-        if (stage === loading) return "🕓";
+        if (stage === loading && !error) return "🕓";
+        if (stage === loading && error) return "❌";
         if (stage > loading) return "⬜";
         throw new Error("unreachable");
     }
