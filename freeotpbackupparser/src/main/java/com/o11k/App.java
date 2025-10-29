@@ -99,9 +99,4 @@ public class App {
 
         return gson.toJson(uris);
     }
-
-    public static void main(String[] args) throws Exception {
-        String a = parseBackupFile("/home/ori/Downloads/externalBackup-demo.xml");
-        String b = decryptBackupFile(a, "demo");
-    }
 }

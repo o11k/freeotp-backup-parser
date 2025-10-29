@@ -411,6 +411,15 @@ public class Token {
         if (key != null)
             ub.addParameter("secret", base32.encodeAsString(key.getEncoded()));
 
+        if (mIssuerParam != null)
+            ub.addParameter("issuer", mIssuerParam);
+
+        if (mIssuerAlt != null)
+            ub.addParameter("issuerAlt", mIssuerAlt);
+
+        if (mLabelAlt != null)
+            ub.addParameter("mLabelAlt", mLabelAlt);
+
         if (mAlgorithm != null)
             ub.addParameter("algorithm", mAlgorithm);
 

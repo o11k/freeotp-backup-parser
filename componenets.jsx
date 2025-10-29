@@ -24,7 +24,10 @@ function AppComponent() {
 
     const [file, setFile] = React.useState(null)
     const [password, setPassword] = React.useState("")
-    const [result, setResult] = React.useState("")
+    const oldInputs = React.useRef({file, password})
+
+    const [fileData, setFileData] = React.useState(null);
+    const [otpUris, setOtpUris] = React.useState(null);
 
     const [loading, setLoading] = React.useState(LOAD_STATE.START)
     const [error, setError] = React.useState("")
@@ -38,13 +41,39 @@ function AppComponent() {
     })()}, [error])
 
     React.useEffect(() => {(async () => {
-        if (file && loading < LOAD_STATE.DONE) throw new Error("unreachable without user shenanigans");
-        if (!file) {setResult(""); return}
+        const fileChanged = file !== oldInputs.current.file;
+        const passwordChanged = password !== oldInputs.current.password;
+        oldInputs.current = {file, password};
 
-        const bytes = await readFile(file);
-        await cheerpOSAddStringFile("/str/externalBackup.xml", bytes);
-        const res = await window.JavaClass.parseBackupFile("/str/externalBackup.xml");
-        setResult(JSON.parse(res));
+        if (fileChanged || passwordChanged) setOtpUris(null);
+
+        let currFileData = fileData;
+
+        if (fileChanged) {
+            currFileData = null;
+            setFileData(currFileData)
+
+            if (file) {
+                const bytes = await readFile(file);
+                await cheerpOSAddStringFile("/str/externalBackup.xml", bytes);
+                const fileDataStr = await window.JavaClass.parseBackupFile("/str/externalBackup.xml");
+                currFileData = JSON.parse(fileDataStr);
+                setFileData(currFileData);
+            }
+        }
+
+        if (password && (passwordChanged || fileChanged)) {
+            let otpUrisStr;
+            try {
+                otpUrisStr = await window.JavaClass.decryptBackupFile(JSON.stringify(currFileData), password);
+            } catch (e) {
+                if (passwordChanged) {
+                    setError(e);
+                    return;
+                }
+            }
+            setOtpUris(JSON.parse(otpUrisStr));
+        }
     })()}, [file, password])
 
     React.useEffect(() => {(async () => {
@@ -94,11 +123,16 @@ function AppComponent() {
                 <br />
                 Enter password
                 <br />
-                <input type="password" ref={passwordEl} onKeyDown={e => {if (e.key === "Enter") setPassword(passwordEl.current.value)}} />
+                <input
+                    type="password"
+                    ref={passwordEl}
+                    onKeyDown={e => {if (e.key === "Enter") setPassword(passwordEl.current.value)}}
+                    disabled={otpUris != null}
+                />
                 <button onClick={() => setPassword(passwordEl.current.value)}>Set</button>
                 <br />
                 <br />
-                {!result ? null : <table border={1} style={{borderCollapse: "collapse"}}>
+                {fileData === null ? null : <table border={1} style={{borderCollapse: "collapse"}}>
                     <thead>
                         <tr>
                             <th>QR</th>
@@ -107,9 +141,9 @@ function AppComponent() {
                         </tr>
                     </thead>
                     <tbody>
-                        {result.tokens.map(t => {
+                        {fileData.tokens.map((t, i) => {
                             return <tr key={btoa(t.key.mCipherText.map(c => String.fromCharCode((c+255)%255)).join(""))}>
-                                <td>🔒</td>
+                                <td>{otpUris === null ? "🔒" : otpUris[i]}</td>
                                 <td>{t.token.issuerInt ?? t.token.issuerExt ?? "<unknown>"}</td>
                                 <td>{t.token.label}</td>
                             </tr>
