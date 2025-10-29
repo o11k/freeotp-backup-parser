@@ -16,6 +16,7 @@ function AppComponent() {
         JAR: 2,
         CLASS: 3,
         PARSE: 4,
+        DECRYPT: 5,
         DONE: 100,
     })
 
@@ -33,6 +34,7 @@ function AppComponent() {
         let errStr = error.toString();
         if (errStr instanceof Promise) errStr = await errStr;
         window.alert(errStr);
+        throw error;
     })()}, [error])
 
     React.useEffect(() => {(async () => {
@@ -41,7 +43,7 @@ function AppComponent() {
 
         const bytes = await readFile(file);
         await cheerpOSAddStringFile("/str/externalBackup.xml", bytes);
-        const res = await window.JavaClass.parseFreeOTPBackup("/str/externalBackup.xml");
+        const res = await window.JavaClass.parseBackupFile("/str/externalBackup.xml");
         setResult(JSON.parse(res));
     })()}, [file, password])
 
@@ -55,8 +57,11 @@ function AppComponent() {
             const jclass = await lib.com.o11k.App;
             window.JavaClass = jclass;
             setLoading(LOAD_STATE.PARSE);
-            const result = await jclass.parseFreeOTPBackup("/app/externalBackup-demo.xml");
-            console.log(result);
+            const encrypted = await jclass.parseBackupFile("/app/externalBackup-demo.xml");
+            console.log(encrypted);
+            setLoading(LOAD_STATE.DECRYPT);
+            const decrypted = await jclass.decryptBackupFile(encrypted, "demo");
+            console.log(decrypted);
             setLoading(LOAD_STATE.DONE);
         } catch (e) {
             setError(e);
@@ -77,7 +82,8 @@ function AppComponent() {
                 <span>{loadEmoji(LOAD_STATE.INITIZALIZE)} Initializing CheerpJ</span><br />
                 <span>{loadEmoji(LOAD_STATE.JAR)} Loading .jar file</span><br />
                 <span>{loadEmoji(LOAD_STATE.CLASS)} Loading class</span><br />
-                <span>{loadEmoji(LOAD_STATE.PARSE)} Invoking parse function for the first time</span><br />
+                <span>{loadEmoji(LOAD_STATE.PARSE)} Invoking parse method for the first time</span><br />
+                <span>{loadEmoji(LOAD_STATE.DECRYPT)} Invoking decrypt method for the first time</span><br />
             </div>
             <br />
             <div style={(loading === LOAD_STATE.DONE) ? {} : {opacity: 0.5, pointerEvents: "none", userSelect: "none"}}>
@@ -102,7 +108,7 @@ function AppComponent() {
                     </thead>
                     <tbody>
                         {result.tokens.map(t => {
-                            return <tr>
+                            return <tr key={btoa(t.key.mCipherText.map(c => String.fromCharCode((c+255)%255)).join(""))}>
                                 <td>🔒</td>
                                 <td>{t.token.issuerInt ?? t.token.issuerExt ?? "<unknown>"}</td>
                                 <td>{t.token.label}</td>

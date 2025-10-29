@@ -37,8 +37,13 @@ public final class EncryptedKey {
             throw new InvalidKeyException("Key is null");
         }
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, key);
+        cipher.init(Cipher.ENCRYPT_MODE, fixKeyAlgorithm(key, cipher));
         return new EncryptedKey(cipher, plaintext);
+    }
+
+    private static SecretKey fixKeyAlgorithm(SecretKey key, Cipher cipher) {
+        String algorithm = cipher.getAlgorithm().split("/")[0];
+        return new SecretKeySpec(key.getEncoded(), algorithm);
     }
 
     public SecretKey decrypt(SecretKey key)
@@ -46,13 +51,13 @@ public final class EncryptedKey {
             IllegalBlockSizeException, IOException, InvalidAlgorithmParameterException,
             InvalidKeyException {
         Cipher cipher = Cipher.getInstance(mCipher);
-        cipher.init(Cipher.ENCRYPT_MODE, key);
+        cipher.init(Cipher.ENCRYPT_MODE, fixKeyAlgorithm(key, cipher));
         String algorithm = cipher.getParameters().getAlgorithm();
 
         AlgorithmParameters ap = AlgorithmParameters.getInstance(algorithm);
         ap.init(mParameters);
 
-        cipher.init(Cipher.DECRYPT_MODE, key, ap);
+        cipher.init(Cipher.DECRYPT_MODE, fixKeyAlgorithm(key, cipher), ap);
         cipher.updateAAD(mToken.getBytes(StandardCharsets.UTF_8));
         return new SecretKeySpec(cipher.doFinal(mCipherText), mToken);
     }

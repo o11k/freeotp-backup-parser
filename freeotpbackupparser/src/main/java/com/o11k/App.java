@@ -5,12 +5,23 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.FileInputStream;
 import java.io.ObjectInputStream;
+import java.security.SecureRandom;
+
+import javax.crypto.AEADBadTagException;
+import javax.crypto.Cipher;
+import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
-import org.fedorahosted.freeotp.encryptor.EncryptedKey;
-import org.fedorahosted.freeotp.encryptor.MasterKey;
 import org.fedorahosted.freeotp.Token;
+import org.fedorahosted.freeotp.encryptor.EncryptedKey;
+// import org.fedorahosted.freeotp.encryptor.EncryptedKey;
+import org.fedorahosted.freeotp.encryptor.MasterKey;
+// import org.fedorahosted.freeotp.Token;
 
 public class App {
     public static class EncryptedToken {
@@ -33,7 +44,7 @@ public class App {
         }
     }
     
-    public static String parseFreeOTPBackup(String path) throws Exception {
+    public static String parseBackupFile(String path) throws Exception {
         FileInputStream fis = new FileInputStream(path);
         ObjectInputStream ois = new ObjectInputStream(fis);
         Map<String, String> entries = (Map<String, String>) ois.readObject();
@@ -65,5 +76,32 @@ public class App {
         BackupFile bf = new BackupFile(masterKey, tokens);
 
         return gson.toJson(bf);
+    }
+
+    public static String decryptBackupFile(String backupFileStr, String password) throws Exception {
+        Gson gson = new Gson();
+        BackupFile backupFile = gson.fromJson(backupFileStr, BackupFile.class);
+
+        List<String> uris = new ArrayList<String>(backupFile.tokens.size());
+
+        SecretKey secretKey;
+        // try {
+            secretKey = backupFile.masterKey.decrypt(password);
+        // } catch (Exception e) {
+        //     throw new Exception("bad password");
+        // }
+
+        for (EncryptedToken eToken : backupFile.tokens) {
+            SecretKey tokenSecretKey = eToken.key.decrypt(secretKey);
+            String uri = eToken.token.toUri(tokenSecretKey).toString();
+            uris.add(uri);
+        }
+
+        return gson.toJson(uris);
+    }
+
+    public static void main(String[] args) throws Exception {
+        String a = parseBackupFile("/home/ori/Downloads/externalBackup-demo.xml");
+        String b = decryptBackupFile(a, "demo");
     }
 }
