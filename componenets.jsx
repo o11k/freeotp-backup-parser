@@ -74,6 +74,8 @@ function AppComponent() {
             }
             setOtpUris(JSON.parse(otpUrisStr));
         }
+
+        if (fileChanged && !passwordChanged) passwordEl.current.focus();
     })()}, [file, password])
 
     React.useEffect(() => {(async () => {
@@ -130,7 +132,7 @@ function AppComponent() {
                     onKeyDown={e => {if (e.key === "Enter") setPassword(passwordEl.current.value)}}
                     disabled={otpUris != null}
                 />
-                <button onClick={() => setPassword(passwordEl.current.value)}>Set</button>
+                <button onClick={() => setPassword(passwordEl.current.value)} disabled={otpUris != null}>Set</button>
                 <br />
                 <br />
                 {fileData === null ? null : <table border={1} style={{borderCollapse: "collapse"}}>
@@ -144,7 +146,7 @@ function AppComponent() {
                     <tbody>
                         {fileData.tokens.map((t, i) => {
                             return <tr key={btoa(t.key.mCipherText.map(c => String.fromCharCode((c+255)%255)).join(""))}>
-                                <td>{otpUris === null ? "🔒" : otpUris[i]}</td>
+                                <td>{otpUris === null ? "🔒" : <QR text={otpUris[i]} width={200} height={200} />}</td>
                                 <td>{t.token.issuerInt ?? t.token.issuerExt ?? "<unknown>"}</td>
                                 <td>{t.token.label}</td>
                             </tr>
@@ -154,6 +156,15 @@ function AppComponent() {
             </div>
         </div>
     )
+}
+
+function QR({ text, width, height }) {
+    const handleRef =  React.useCallback(el => {
+        if (el)
+            new QRCode(el, {text, width, height, correctLevel : QRCode.CorrectLevel.L});
+    }, [text, width, height])
+
+    return <div ref={handleRef}></div>
 }
 
 ReactDOM.createRoot(document.getElementById("freeotp-root")).render(<AppComponent />);
