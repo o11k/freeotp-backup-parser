@@ -5,23 +5,14 @@ import java.util.List;
 import java.util.ArrayList;
 import java.io.FileInputStream;
 import java.io.ObjectInputStream;
-import java.security.SecureRandom;
-
-import javax.crypto.AEADBadTagException;
-import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import javax.crypto.spec.SecretKeySpec;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 import org.fedorahosted.freeotp.Token;
 import org.fedorahosted.freeotp.encryptor.EncryptedKey;
-// import org.fedorahosted.freeotp.encryptor.EncryptedKey;
 import org.fedorahosted.freeotp.encryptor.MasterKey;
-// import org.fedorahosted.freeotp.Token;
 
 public class App {
     public static class EncryptedToken {
@@ -49,6 +40,7 @@ public class App {
     public static String parseBackupFile(String path) throws Exception {
         FileInputStream fis = new FileInputStream(path);
         ObjectInputStream ois = new ObjectInputStream(fis);
+        @SuppressWarnings("unchecked")
         Map<String, String> entries = (Map<String, String>) ois.readObject();
         ois.close();
         fis.close();

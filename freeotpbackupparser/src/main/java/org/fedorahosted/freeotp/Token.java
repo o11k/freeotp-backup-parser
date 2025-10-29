@@ -29,7 +29,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
 import org.apache.commons.codec.binary.Base32;
 import org.fedorahosted.freeotp.utils.Time;
@@ -39,16 +38,9 @@ import java.nio.ByteOrder;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
-import java.util.Locale;
-import java.util.Random;
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 public class Token {
     public static class UnsafeUriException        extends Exception {}
@@ -68,9 +60,6 @@ public class Token {
     public static class InvalidColorException     extends InvalidUriException {}
 
     public enum Type { HOTP, TOTP }
-
-    private static final String[] SAFE_ALGOS = { "SHA1", "SHA224", "SHA256", "SHA384", "SHA512" };
-    private static final Pattern PATTERN = Pattern.compile("^/(?:([^:]*):)?([^:]*)$");
 
     @SerializedName("algo")
     private final String mAlgorithm;
@@ -110,10 +99,6 @@ public class Token {
 
     @SerializedName("counter")
     private Long mCounter;
-
-    private class Secret {
-        private byte[] secret;
-    }
 
     private Token() {
         mIssuer = null;
