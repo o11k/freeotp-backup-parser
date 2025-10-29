@@ -78,8 +78,9 @@ function AppComponent() {
 
     React.useEffect(() => {(async () => {
         try {
-            setLoading(LOAD_STATE.INITIZALIZE)
-            await cheerpjInit();
+            setLoading(LOAD_STATE.INITIZALIZE);
+            const preload = await (await fetch("preload.json")).json()
+            await cheerpjInit({preloadResources: preload});
             setLoading(LOAD_STATE.JAR)
             const lib = await cheerpjRunLibrary("/app/freeotpbackupparser/target/freeotpbackupparser-1.0-SNAPSHOT.jar");
             setLoading(LOAD_STATE.CLASS)
