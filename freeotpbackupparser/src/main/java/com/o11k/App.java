@@ -43,18 +43,22 @@ public class App {
             this.tokens = tokens;
         }
     }
+
+    public static class BadPasswordException extends Exception {}
     
     public static String parseBackupFile(String path) throws Exception {
         FileInputStream fis = new FileInputStream(path);
         ObjectInputStream ois = new ObjectInputStream(fis);
         Map<String, String> entries = (Map<String, String>) ois.readObject();
+        ois.close();
+        fis.close();
 
         Gson gson = new Gson();
 
         String masterKeyStr = entries.get("masterKey");
         MasterKey masterKey = gson.fromJson(masterKeyStr, MasterKey.class);
 
-        List tokens = new ArrayList<EncryptedToken>(entries.size() / 2);
+        List<EncryptedToken> tokens = new ArrayList<EncryptedToken>(entries.size() / 2);
 
         for (Map.Entry<String, String> e : entries.entrySet()) {
             String key = e.getKey();
@@ -85,11 +89,11 @@ public class App {
         List<String> uris = new ArrayList<String>(backupFile.tokens.size());
 
         SecretKey secretKey;
-        // try {
+        try {
             secretKey = backupFile.masterKey.decrypt(password);
-        // } catch (Exception e) {
-        //     throw new Exception("bad password");
-        // }
+        } catch (Exception e) {
+            throw new BadPasswordException();
+        }
 
         for (EncryptedToken eToken : backupFile.tokens) {
             SecretKey tokenSecretKey = eToken.key.decrypt(secretKey);
