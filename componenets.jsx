@@ -56,7 +56,6 @@ function AppComponent() {
             if (file) {
                 const bytes = await readFile(file);
                 await cheerpOSAddStringFile("/str/externalBackup.xml", bytes);
-                const jsFileData = parseBackupFile(bytes);
                 currFileData = parseBackupFile(bytes);
                 setFileData(currFileData);
             }
@@ -169,7 +168,12 @@ function QR({ text, width, height }) {
     return <div ref={handleRef}></div>
 }
 
-function parseBackupFile(/** @type {Uint8Array} */ data) {
+/**
+ * 
+ * @param {Uint8Array} data 
+ * @returns {BackupFile}
+ */
+function parseBackupFile(data) {
     let index = 0;
 
     const read = (numBytes, exact=true) => {
