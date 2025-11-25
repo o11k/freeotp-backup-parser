@@ -89,10 +89,10 @@ function AppComponent() {
             window.JavaClass = jclass;
             setLoading(LOAD_STATE.PARSE);
             const encrypted = await jclass.parseBackupFile("/app/externalBackup-demo.xml");
-            console.log(encrypted);
+            console.log("loading encrypted", encrypted);
             setLoading(LOAD_STATE.DECRYPT);
             const decrypted = await jclass.decryptBackupFile(encrypted, "demo");
-            console.log(decrypted);
+            console.log("loading decrypted", decrypted);
             setLoading(LOAD_STATE.DONE);
         } catch (e) {
             setError(e);
@@ -267,11 +267,11 @@ function parseBackupFile(data) {
         } else if (key.endsWith("-token")) {
             const uuid = key.slice(0, -"-token".length);
             if (!tokensMap.has(uuid)) tokensMap.set(uuid, {});
-            tokensMap.get(uuid).token = value;
+            tokensMap.get(uuid).token = JSON.parse(value);
         } else {
             const uuid = key;
             if (!tokensMap.has(uuid)) tokensMap.set(uuid, {});
-            tokensMap.get(uuid).key = value;
+            tokensMap.get(uuid).key = JSON.parse(JSON.parse(value).key);
         }
     }
     result.tokens = [...tokensMap.values()];
@@ -279,6 +279,117 @@ function parseBackupFile(data) {
     expect(0x78, readInteger(1), "TC_ENDBLOCKDATA");
 
     return result;
+}
+
+/**
+ * 
+ * @param {MasterKey} masterKey 
+ * @param {string} password 
+ * @returns {Promise<CryptoKey>}
+ */
+async function decryptMasterKey(masterKey, password) {
+    let kdf, hmac;
+    if (masterKey.mAlgorithm === "PBKDF2withHmacSHA512") {
+        kdf = "PBKDF2";
+        hmac = "SHA-512";
+    } else if (masterKey.mAlgorithm === "PBKDF2withHmacSHA1") {
+        kdf = "PBKDF2";
+        hmac = "SHA-1";
+    } else {
+        throw Error("Unexpected MasterKey algorithm: " + masterKey.mAlgorithm);
+    }
+
+    const salt = new Uint8Array(masterKey.mSalt);
+    const iterations = masterKey.mIterations;
+
+    const kdfParams = {
+        name: kdf,
+        hash: hmac,
+        salt: salt,
+        iterations: iterations
+    }
+
+    const baseKey = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(password),
+        kdfParams.name,
+        false,
+        ["deriveKey"],
+    )
+
+    const decryptionKey = await crypto.subtle.deriveKey(
+        kdfParams,
+        baseKey,
+        {
+            name: "AES-GCM",  // EncryptedKey always uses AES-GCM
+            length: salt.byteLength * 8,
+        },
+        true,
+        ["decrypt"],
+    )
+    console.log("js dk", new Int8Array(await crypto.subtle.exportKey("raw", decryptionKey)));
+
+    const {iv, tagLength} = parseDerAesGcmParams(new Uint8Array(masterKey.mEncryptedKey.mParameters))
+
+    const rawDecryptedMasterKey = await crypto.subtle.decrypt(
+        {
+            name: "AES-GCM",
+            iv: iv,
+            tagLength: tagLength,
+            additionalData: new TextEncoder().encode("AES"),
+        },
+        decryptionKey,
+        new Uint8Array(masterKey.mEncryptedKey.mCipherText),
+    )
+
+    const decryptedMasterKey = await crypto.subtle.importKey(
+        "raw",
+        rawDecryptedMasterKey,
+        "AES-GCM",
+        true,
+        ["decrypt"],
+    )
+    console.log("js mk", new Int8Array(await crypto.subtle.exportKey("raw", decryptedMasterKey)));
+
+    return decryptedMasterKey;
+}
+
+/**
+ * 
+ * @param {Uint8Array} params 
+ * @returns {{iv: Uint8Array, tagLength: number}}
+ */
+function parseDerAesGcmParams(params) {
+    const SEQUENCE = 0x30;
+    const OCTETSTRING = 0x04;
+    const INTEGER = 0x02;
+
+    if (params[0] !== SEQUENCE ||
+        params[1] !== params.byteLength-2
+    ) {
+        throw new Error("Malformed AES/GCM params");
+    }
+
+    const stringOffset = 2;
+    const stringLength = params[3];
+
+    if (typeof stringLength !== "number") {
+        throw new Error("Malformed AES/GCM params");
+    }
+
+    const intOffset = 4 + stringLength;
+    const intLength = params[intOffset + 1];
+
+    if (intLength !== 1 ||
+        intOffset + intLength + 2 !== params.byteLength
+    ) {
+        throw new Error("Malformed AES/GCM params");
+    }
+
+    return {
+        iv: params.slice(stringOffset+2, stringOffset+2 + stringLength),
+        tagLength: params[intOffset + 2] * 8,
+    }
 }
 
 ReactDOM.createRoot(document.getElementById("freeotp-root")).render(<AppComponent />);
