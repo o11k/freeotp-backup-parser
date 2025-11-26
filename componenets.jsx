@@ -10,16 +10,6 @@ async function readFile(file) {
 }
 
 function AppComponent() {
-    const LOAD_STATE = Object.freeze({
-        START: 0,
-        INITIZALIZE: 1,
-        JAR: 2,
-        CLASS: 3,
-        PARSE: 4,
-        DECRYPT: 5,
-        DONE: 100,
-    })
-
     const passwordEl = React.useRef();
 
     const [file, setFile] = React.useState(null)
@@ -29,13 +19,11 @@ function AppComponent() {
     const [fileData, setFileData] = React.useState(null);
     const [otpUris, setOtpUris] = React.useState(null);
 
-    const [loading, setLoading] = React.useState(LOAD_STATE.START)
     const [error, setError] = React.useState("")
 
     React.useEffect(() => {(async () => {
         if (!error) return;
         let errStr = error.toString();
-        if (errStr instanceof Promise) errStr = await errStr;
         window.alert(errStr);
         throw error;
     })()}, [error])
@@ -55,69 +43,45 @@ function AppComponent() {
 
             if (file) {
                 const bytes = await readFile(file);
-                await cheerpOSAddStringFile("/str/externalBackup.xml", bytes);
                 currFileData = parseBackupFile(bytes);
                 setFileData(currFileData);
             }
         }
 
         if (password && (passwordChanged || fileChanged)) {
-            let otpUrisStr;
             try {
-                otpUrisStr = await window.JavaClass.decryptBackupFile(JSON.stringify(currFileData), password);
+                let masterKey;
+                try {
+                    masterKey = await decryptMasterKey(currFileData.masterKey, password)
+                } catch (_) {
+                    throw new Error("Wrong password");
+                }
+
+                let otpUris;
+                try {
+                    otpUris = await Promise.all(currFileData.tokens.map(async t => {
+                        const secret = await decryptTokenSecret(masterKey, t.key);
+                        const uri = tokenToUri(t.token, secret);
+                        return uri;
+                    }))
+                    setOtpUris(otpUris);
+                } catch (e) {
+                    throw new Error("Successfully decrypted master key, but failed to decrypt token secrets. Corrupted file?", {cause: e});
+                }
             } catch (e) {
                 if (passwordChanged) {
                     setError(e);
                     return;
                 }
             }
-            setOtpUris(JSON.parse(otpUrisStr));
         }
 
         if (fileChanged && !passwordChanged) passwordEl.current.focus();
     })()}, [file, password])
 
-    React.useEffect(() => {(async () => {
-        try {
-            setLoading(LOAD_STATE.INITIZALIZE);
-            const preload = await (await fetch("preload.json")).json()
-            await cheerpjInit({preloadResources: preload});
-            setLoading(LOAD_STATE.JAR)
-            const lib = await cheerpjRunLibrary("/app/freeotpbackupparser/target/freeotpbackupparser-1.0-SNAPSHOT.jar");
-            setLoading(LOAD_STATE.CLASS)
-            const jclass = await lib.com.o11k.App;
-            window.JavaClass = jclass;
-            setLoading(LOAD_STATE.PARSE);
-            const encrypted = await jclass.parseBackupFile("/app/externalBackup-demo.xml");
-            console.log("loading encrypted", encrypted);
-            setLoading(LOAD_STATE.DECRYPT);
-            const decrypted = await jclass.decryptBackupFile(encrypted, "demo");
-            console.log("loading decrypted", decrypted);
-            setLoading(LOAD_STATE.DONE);
-        } catch (e) {
-            setError(e);
-        }
-    })()}, [])
-
-    const loadEmoji = (stage) => {
-        if (stage < loading) return "✅";
-        if (stage === loading && !error) return "🕓";
-        if (stage === loading && error) return "❌";
-        if (stage > loading) return "⬜";
-        throw new Error("unreachable");
-    }
-
     return (
         <div>
             <div>
-                <span>{loadEmoji(LOAD_STATE.INITIZALIZE)} Initializing CheerpJ</span><br />
-                <span>{loadEmoji(LOAD_STATE.JAR)} Loading .jar file</span><br />
-                <span>{loadEmoji(LOAD_STATE.CLASS)} Loading class</span><br />
-                <span>{loadEmoji(LOAD_STATE.PARSE)} Invoking parse method for the first time</span><br />
-                <span>{loadEmoji(LOAD_STATE.DECRYPT)} Invoking decrypt method for the first time</span><br />
-            </div>
-            <br />
-            <div style={(loading === LOAD_STATE.DONE) ? {} : {opacity: 0.5, pointerEvents: "none", userSelect: "none"}}>
                 Select <code>externalBackup.xml</code> file
                 <br />
                 <input type="file" onChange={e => setFile([...e.target.files].at(0))} />
@@ -146,7 +110,7 @@ function AppComponent() {
                         {fileData.tokens.map((t, i) => {
                             return <tr key={btoa(t.key.mCipherText.map(c => String.fromCharCode((c+255)%255)).join(""))}>
                                 <td style={{padding: 30}}>
-                                    {otpUris === null ? "🔒" : <QR text={otpUris[i]} width={200} height={200} />}
+                                    {otpUris === null ? "🔒" : <><QR text={otpUris[i]} width={200} height={200} /><br />{otpUris[i]}</>}
                                 </td>
                                 <td>{t.token.issuerExt ?? t.token.issuerInt ?? "<unknown>"}</td>
                                 <td>{t.token.label}</td>
@@ -327,7 +291,6 @@ async function decryptMasterKey(masterKey, password) {
         true,
         ["decrypt"],
     )
-    console.log("js dk", new Int8Array(await crypto.subtle.exportKey("raw", decryptionKey)));
 
     const {iv, tagLength} = parseDerAesGcmParams(new Uint8Array(masterKey.mEncryptedKey.mParameters))
 
@@ -349,7 +312,6 @@ async function decryptMasterKey(masterKey, password) {
         true,
         ["decrypt"],
     )
-    console.log("js mk", new Int8Array(await crypto.subtle.exportKey("raw", decryptedMasterKey)));
 
     return decryptedMasterKey;
 }
@@ -440,7 +402,68 @@ const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
         output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
     }
 
+    while (output.length % 8 !== 0) {
+        output += "=";
+    }
+
     return output;
+}
+
+/**
+ * 
+ * @param {Token} token 
+ * @param {string} secret
+ * @returns {string} 
+ */
+function tokenToUri(token, secret) {
+    const url = new URL("otpauth://example.com/path");
+
+    url.host = token.type.toLowerCase();
+    if (token.issuerExt === undefined) {
+        url.pathname = token.label;
+    } else {
+        url.pathname = token.issuerExt + ":" + token.label;
+    }
+
+    const params = url.searchParams;
+
+    params.set("secret", secret);
+
+    if (token.issuerInt !== undefined) {
+        params.set("issuer", token.issuerInt);
+    }
+    if (token.issuerAlt !== undefined) {
+        params.set("issuerAlt", token.issuerAlt);
+    }
+    if (token.labelAlt !== undefined) {
+        params.set("mLabelAlt", token.labelAlt);
+    }
+    if (token.algo !== undefined) {
+        params.set("algorithm", token.algo);
+    }
+    if (token.period !== undefined) {
+        params.set("period", token.period.toString());
+    }
+    if (token.digits !== undefined) {
+        params.set("digits", token.digits.toString());
+    }
+    if (token.lock !== undefined) {
+        params.set("lock", token.lock.toString());
+    }
+    if (token.color !== undefined) {
+        params.set("color", token.color);
+    }
+    if (token.image !== undefined) {
+        params.set("image", token.image);
+    }
+    if (token.type === "HOTP") {
+        if (token.counter === undefined) {
+            throw new Error("HOTP token must have a counter field");
+        }
+        params.set("counter", token.counter.toString());
+    }
+
+    return url.toString();
 }
 
 ReactDOM.createRoot(document.getElementById("freeotp-root")).render(<AppComponent />);
