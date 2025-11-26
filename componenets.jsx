@@ -336,7 +336,7 @@ async function decryptMasterKey(masterKey, password) {
             name: "AES-GCM",
             iv: iv,
             tagLength: tagLength,
-            additionalData: new TextEncoder().encode("AES"),
+            additionalData: new TextEncoder().encode(masterKey.mEncryptedKey.mToken),
         },
         decryptionKey,
         new Uint8Array(masterKey.mEncryptedKey.mCipherText),
@@ -390,6 +390,57 @@ function parseDerAesGcmParams(params) {
         iv: params.slice(stringOffset+2, stringOffset+2 + stringLength),
         tagLength: params[intOffset + 2] * 8,
     }
+}
+
+/**
+ * 
+ * @param {CryptoKey} masterKey 
+ * @param {EncryptedKey} encryptedToken 
+ * @returns {Promise<string>}
+ */
+async function decryptTokenSecret(masterKey, encryptedToken) {
+    const {iv, tagLength} = parseDerAesGcmParams(new Uint8Array(encryptedToken.mParameters))
+
+    const decrypted = await crypto.subtle.decrypt(
+        {
+            name: "AES-GCM",
+            iv: iv,
+            tagLength: tagLength,
+            additionalData: new TextEncoder().encode(encryptedToken.mToken),
+        },
+        masterKey,
+        new Uint8Array(encryptedToken.mCipherText),
+    )
+
+    return uint8ToBase32(new Uint8Array(decrypted));
+}
+
+
+/**
+ * 
+ * @param {Uint8Array} bytes 
+ * @returns {string}
+*/
+function uint8ToBase32(bytes) {
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    let bits = 0;
+    let value = 0;
+    let output = "";
+
+    for (const byte of bytes) {
+        value = (value << 8) | byte;
+        bits += 8;
+        while (bits >= 5) {
+            output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+            bits -= 5;
+        }
+    }
+
+    if (bits > 0) {
+        output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+    }
+
+    return output;
 }
 
 ReactDOM.createRoot(document.getElementById("freeotp-root")).render(<AppComponent />);
